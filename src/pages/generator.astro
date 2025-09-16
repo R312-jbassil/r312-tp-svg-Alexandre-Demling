@@ -1,0 +1,90 @@
+---
+import "../styles/global.css";
+---
+
+<html lang="fr" data-theme="agence">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Générateur SVG</title>
+  </head>
+  <body class="min-h-screen bg-base-200">
+    <main class="p-8 max-w-5xl mx-auto space-y-8">
+      <h1 class="text-3xl font-bold text-primary mb-6 text-center">
+        Générateur de SVG
+      </h1>
+
+      <!-- Zone 1 : Prompt utilisateur -->
+      <div class="card bg-base-100 shadow-xl p-6">
+        <label for="user-prompt" class="block font-medium mb-2">Entrez un prompt :</label>
+        <textarea
+          id="user-prompt"
+          placeholder="Décrivez le SVG que vous voulez générer..."
+          class="textarea textarea-bordered w-full h-32"
+        ></textarea>
+        <button id="generate-button" class="btn btn-primary mt-4 w-full">
+          Générer le SVG
+        </button>
+      </div>
+
+      <!-- Zone 2 : Code généré -->
+      <div class="card bg-base-100 shadow-xl p-6">
+        <h2 class="text-xl font-semibold mb-4">Code SVG généré :</h2>
+        <pre
+          id="svg-output"
+          class="textarea textarea-bordered w-full h-64 overflow-auto whitespace-pre-wrap"
+        ></pre>
+      </div>
+
+      <!-- Zone 3 : Affichage du SVG -->
+      <div class="card bg-base-100 shadow-xl p-6">
+        <h2 class="text-xl font-semibold mb-4">Aperçu du SVG :</h2>
+        <div id="svg-container" class="border rounded-lg p-4 min-h-[200px] flex items-center justify-center bg-base-200">
+          <span class="text-neutral">Le SVG généré apparaîtra ici</span>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      //@ts-nocheck
+
+      async function generateSVG(prompt) {
+        console.log("Generating SVG for prompt:", prompt);
+        const res = await fetch("/api/generate-svg", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        });
+        const data = await res.json();
+        return data.svg;
+      }
+
+      async function handleSubmit() {
+        const promptElement = document.getElementById("user-prompt");
+        const svgContainer = document.getElementById("svg-container");
+        const svgOutput = document.getElementById("svg-output");
+        const generateButton = document.getElementById("generate-button");
+
+        let prompt = promptElement ? promptElement.value : "";
+        console.log("submitted: ", prompt);
+
+        // Loading state
+        svgContainer.innerHTML =
+          '<span class="loading loading-ring loading-xl"></span>';
+        generateButton.disabled = true;
+
+        let svgCode = await generateSVG(prompt);
+
+        console.log("svgCode: ", svgCode);
+        svgOutput.textContent = svgCode;
+        svgContainer.innerHTML = svgCode;
+
+        generateButton.disabled = false;
+      }
+
+      const generateButton = document.getElementById("generate-button");
+      if (generateButton) {
+        generateButton.addEventListener("click", handleSubmit);
+      }
+    </script>
+  </body>
+</html>
