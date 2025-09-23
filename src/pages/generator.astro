@@ -8,80 +8,141 @@ import "../styles/global.css";
     <title>Générateur SVG</title>
   </head>
   <body class="min-h-screen bg-base-200">
-    <main class="p-8 max-w-5xl mx-auto space-y-8">
+    <main class="p-8 max-w-6xl mx-auto space-y-8">
       <h1 class="text-3xl font-bold text-primary mb-6 text-center">
         Générateur de SVG
       </h1>
 
-      <div class="card bg-base-100 shadow-xl p-6">
-        <label for="user-prompt" class="block font-medium mb-2">Entrez un prompt :</label>
-        <textarea
-          id="user-prompt"
-          placeholder="Décrivez le SVG que vous voulez générer..."
-          class="textarea textarea-bordered w-full h-32"
-        ></textarea>
-        <button id="generate-button" class="btn btn-primary mt-4 w-full">
-          Générer le SVG
-        </button>
-      </div>
+      <div class="flex gap-4">
+       
+        <div class="flex-1 border rounded-lg p-4 h-[400px] overflow-y-auto flex flex-col gap-2 bg-base-100" id="chat-history">
+          <span class="text-neutral">Vos prompts et réponses de l'IA apparaîtront ici...</span>
+        </div>
 
-      <div class="card bg-base-100 shadow-xl p-6">
-        <h2 class="text-xl font-semibold mb-4">Code SVG généré :</h2>
-        <pre
-          id="svg-output"
-          class="textarea textarea-bordered w-full h-64 overflow-auto whitespace-pre-wrap"
-        ></pre>
-      </div>
-
-      <div class="card bg-base-100 shadow-xl p-6">
-        <h2 class="text-xl font-semibold mb-4">Aperçu du SVG :</h2>
-        <div id="svg-container" class="border rounded-lg p-4 min-h-[200px] flex items-center justify-center bg-base-200">
+        
+        <div class="flex-1 border rounded-lg p-4 min-h-[400px] flex items-center justify-center bg-base-200" id="svg-preview">
           <span class="text-neutral">Le SVG généré apparaîtra ici</span>
         </div>
+      </div>
+
+      <form id="prompt-form" class="flex gap-2 mt-4">
+        <input id="user-prompt" type="text" placeholder="Décrivez le SVG..." class="input flex-grow" />
+        <button type="submit" class="btn btn-primary">Envoyer</button>
+      </form>
+
+      <div class="mt-4">
+        <button id="save-button" class="btn btn-accent w-full">Sauvegarder le SVG</button>
       </div>
     </main>
 
     <script>
       //@ts-nocheck
+      let promptList = [];
+      let svgId = null; 
 
-      async function generateSVG(prompt) {
-        console.log("Generating SVG for prompt:", prompt);
+      const chatHistory = document.getElementById("chat-history");
+      const svgPreview = document.getElementById("svg-preview");
+      const promptForm = document.getElementById("prompt-form");
+      const userPromptInput = document.getElementById("user-prompt");
+      const saveButton = document.getElementById("save-button");
+
+      async function generateSVG(messages) {
         const res = await fetch("/api/generate-svg", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt }),
+          body: JSON.stringify({ messages }),
         });
-        const data = await res.json();
-        return data.svg;
+        return await res.json();
       }
 
-      async function handleSubmit() {
-        const promptElement = document.getElementById("user-prompt");
-        const svgContainer = document.getElementById("svg-container");
-        const svgOutput = document.getElementById("svg-output");
-        const generateButton = document.getElementById("generate-button");
-
-        let prompt = promptElement ? promptElement.value : "";
-        console.log("submitted: ", prompt);
-
-        // Loading state
-        svgContainer.innerHTML =
-          '<span class="loading loading-ring loading-xl"></span>';
-        generateButton.disabled = true;
-
-        let svgCode = await generateSVG(prompt);
-
-        console.log("svgCode: ", svgCode);
-        svgOutput.textContent = svgCode;
-        svgContainer.innerHTML = svgCode;
-
-        generateButton.disabled = false;
+      async function saveSVG(params) {
+        const res = await fetch("/api/saveSVG", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+        });
+        return await res.json();
       }
 
-      const generateButton = document.getElementById("generate-button");
-      if (generateButton) {
-        generateButton.addEventListener("click", handleSubmit);
+      async function updateSVG(params) {
+        const res = await fetch("/api/updateSVG", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+        });
+        return await res.json();
       }
+
+      promptForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const prompt = userPromptInput.value.trim();
+        if (!prompt) return;
+
+        promptList.push({ role: "user", content: prompt });
+
+        const userMsg = document.createElement("div");
+        userMsg.className = "chat chat-start";
+        userMsg.innerHTML = `
+          <div class="chat-bubble bg-primary"><pre></pre></div>
+          <div class="chat-footer opacity-60 text-xs mt-1">user</div>
+        `;
+        userMsg.querySelector("pre").textContent = prompt;
+        chatHistory.appendChild(userMsg);
+
+        userPromptInput.value = "";
+        svgPreview.innerHTML = '<span class="loading loading-ring loading-xl"></span>';
+
+        const aiResponse = await generateSVG(promptList);
+        const svgMatch = aiResponse.svg.match(/<svg[\s\S]*?<\/svg>/i);
+        const svgCode = svgMatch ? svgMatch[0] : "";
+
+        promptList.push({ role: "assistant", content: svgCode });
+
+        const assistantMsg = document.createElement("div");
+        assistantMsg.className = "chat chat-end";
+        assistantMsg.innerHTML = `
+          <div class="chat-bubble bg-secondary"><pre></pre></div>
+          <div class="chat-footer opacity-60 text-xs mt-1">assistant</div>
+        `;
+        assistantMsg.querySelector("pre").textContent = svgCode;
+        chatHistory.appendChild(assistantMsg);
+
+        svgPreview.innerHTML = svgCode;
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+      });
+
+      saveButton.addEventListener("click", async () => {
+        const svgOutput = svgPreview.innerHTML || "<svg></svg>";
+
+        const params = {
+          code_svg: svgOutput,
+          chat_history: promptList || [],
+        };
+
+        if (svgId) {
+         
+          params.id = svgId;
+          const result = await updateSVG(params);
+          if (result.success) {
+            alert("SVG mis à jour avec succès !");
+          } else {
+            alert("Erreur lors de la mise à jour : " + result.error);
+          }
+        } else {
+          
+          const name = prompt("Donnez un nom à votre création :");
+          if (!name) return alert("Le nom est requis.");
+          params.name = name;
+
+          const result = await saveSVG(params);
+          if (result.success && result.data?.id) {
+            svgId = result.data.id;
+            alert("SVG sauvegardé avec succès !");
+          } else {
+            alert("Erreur lors de la sauvegarde : " + result.error);
+          }
+        }
+      });
     </script>
   </body>
 </html>

@@ -1,45 +1,50 @@
-// src/pages/api/generate-svg.js
-import { OpenAI } from 'openai';
+import OpenAI from "openai";
 
-// Récupération du token d'accès à partir des variables d'environnement
-const HF_TOKEN = import.meta.env.HF_TOKEN;
+const BASE_URL = import.meta.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+const ACCESS_TOKEN = import.meta.env.OPENROUTER_API_KEY;
+const MODEL = import.meta.env.OPENROUTER_MODEL || "openai/gpt-oss-20b:free";
 
-// Fonction exportée pour gérer les requêtes POST
 export const POST = async ({ request }) => {
-    console.log(request); // Affiche la requête dans la console pour le débogage
-    
-    // Extraction du prompt du corps de la requête
-    const { prompt } = await request.json();
-    // Initialisation du client OpenAI avec l'URL de base et le token d'API
-    const client = new OpenAI({
-      baseURL: import.meta.env.HF_URL,
-      apiKey: HF_TOKEN,
-    });
-    
-    // ................
-    const chatCompletion = await client.chat.completions.create({
-    model: "deepseek-ai/DeepSeek-V3.1:novita",
-    messages: [
-      {
-          role: "system", 
-          content: "You are an SVG code generator. Generate SVG code for the following prompt." 
-      },
-        {
-            role: "user",
-            content: prompt,    
-        },
-    ],
-  });
-    // ...............
+  try {
+    const { messages } = await request.json();
 
-    // Récupération du message généré par l'API
-    const message = chatCompletion.choices[0].message.content || "";
-    console.log('message', message); // Affiche le message généré dans la console pour le débogage
-    
-    // Recherche d'un élément SVG dans le message généré
-    const svgMatch = message.match(/<svg[\s\S]*?<\/svg>/i);
-    // Retourne une réponse JSON contenant le SVG ou une chaîne vide si aucun SVG n'est trouvé
-    return new Response(JSON.stringify({ svg: svgMatch ? svgMatch[0] : "" }), {
-      headers: { "Content-Type": "application/json" },
+    const client = new OpenAI({
+      baseURL: BASE_URL,
+      apiKey: ACCESS_TOKEN,
     });
+
+    const systemMessage = {
+      role: "system",
+      content:
+        "You are an SVG code generator. Generate SVG code for the following messages. Make sure to include ids for each part of the generated SVG.",
+    };
+
+    const chatCompletion = await client.chat.completions.create({
+      model: MODEL,
+      messages: [systemMessage, ...(messages || [])],
+    });
+
+    const message = chatCompletion.choices[0].message || { role: "assistant", content: "" };
+
+    const svgMatch = message.content.match(/<svg[\s\S]*?<\/svg>/i);
+    const svgCode = svgMatch ? svgMatch[0] : "";
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        svg: svgCode,
+        fullResponse: message.content,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    console.error("Erreur API /api/generate-svg :", error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 };
