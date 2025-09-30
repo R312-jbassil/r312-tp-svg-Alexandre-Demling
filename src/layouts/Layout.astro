@@ -1,20 +1,70 @@
 ---
 import "../styles/global.css";
+import { ui } from "../i18n/ui.js";
+const defaultLocale = 'en';
 ---
-<!doctype html>
-<html lang="en" data-theme="light" class="h-full">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
-	</head>
-	<body class="h-full">
-		<div class="h-full flex flex-col min-h-0">
-			<div class="flex-1 min-h-0">
-				<slot />
-			</div>
-		</div>
-	</body>
+
+<!DOCTYPE html>
+<html lang="en" class="h-full" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <meta name="generator" content={Astro.generator} />
+  <title id="page-title">Site</title>
+</head>
+<body class="h-full flex flex-col min-h-0">
+
+<header class="p-4 flex items-center justify-between">
+  <nav class="flex gap-4 items-center">
+    <a href="/" class="link" id="nav-home"></a>
+    <a href="/generator" class="link" id="nav-generator"></a>
+    <a href="/gallery" class="link" id="nav-gallery"></a>
+  </nav>
+
+  <select id="language-select" class="select">
+    <option value="en">English</option>
+    <option value="fr">Français</option>
+  </select>
+</header>
+
+<main class="flex-1 min-h-0">
+  <slot />
+</main>
+
+<script type="module">
+  import { ui } from '/src/i18n/ui.js';
+
+  const select = document.getElementById('language-select');
+  const savedLocale = localStorage.getItem('locale') || navigator.language.split('-')[0] || 'en';
+  let locale = savedLocale === 'fr' ? 'fr' : 'en';
+  select.value = locale;
+
+  function applyTranslations() {
+    document.documentElement.lang = locale;
+    document.getElementById('page-title').textContent = ui[locale].nav.home;
+    document.getElementById('nav-home').textContent = ui[locale].nav.home;
+    document.getElementById('nav-generator').textContent = ui[locale].nav.generator;
+    document.getElementById('nav-gallery').textContent = ui[locale].nav.gallery;
+
+    // Toutes les pages doivent exposer des éléments avec des IDs spécifiques pour traduire
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.dataset.i18n;
+      const parts = key.split('.');
+      let value = ui[locale];
+      parts.forEach(p => value = value[p]);
+      if(value) el.textContent = value;
+    });
+  }
+
+  select.addEventListener('change', (e) => {
+    locale = e.target.value;
+    localStorage.setItem('locale', locale);
+    applyTranslations();
+  });
+
+  applyTranslations();
+</script>
+
+</body>
 </html>

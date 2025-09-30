@@ -1,20 +1,11 @@
 ---
-import "../styles/global.css";
+import Layout from "../layouts/Layout.astro";
 ---
 
-<html lang="fr" data-theme="agence">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Accueil - Générateur SVG</title>
-  </head>
-  <body class="min-h-screen flex items-center justify-center bg-base-200">
-    <main class="text-center p-8">
-      <h1 class="text-4xl font-bold mb-6 text-primary">
-        Bienvenue sur le générateur SVG
-      </h1>
-      <a href="/generator" class="btn btn-primary">
-        Accéder au générateur
-      </a>
-    </main>
-  </body>
-</html>
+<Layout>
+  <main class="text-center p-8">
+    <h1 class="text-4xl font-bold mb-6 text-primary" data-i18n="index.title"></h1>
+    <p class="mb-6" data-i18n="index.description"></p>
+    <a href="/generator" class="btn btn-primary" data-i18n="index.button"></a>
+  </main>
+</Layout>

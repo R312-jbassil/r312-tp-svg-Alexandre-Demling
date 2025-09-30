@@ -1,148 +1,168 @@
 ---
-import "../styles/global.css";
+import Layout from "../layouts/Layout.astro";
+import { ui } from "../i18n/ui.js";
 ---
 
-<html lang="fr" data-theme="agence">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Générateur SVG</title>
-  </head>
-  <body class="min-h-screen bg-base-200">
-    <main class="p-8 max-w-6xl mx-auto space-y-8">
-      <h1 class="text-3xl font-bold text-primary mb-6 text-center">
-        Générateur de SVG
-      </h1>
+<Layout>
+  <main class="p-8 max-w-6xl mx-auto space-y-8">
+    <h1 class="text-3xl font-bold text-primary mb-6 text-center" data-i18n="generator.title"></h1>
 
-      <div class="flex gap-4">
-       
-        <div class="flex-1 border rounded-lg p-4 h-[400px] overflow-y-auto flex flex-col gap-2 bg-base-100" id="chat-history">
-          <span class="text-neutral">Vos prompts et réponses de l'IA apparaîtront ici...</span>
-        </div>
-
-        
-        <div class="flex-1 border rounded-lg p-4 min-h-[400px] flex items-center justify-center bg-base-200" id="svg-preview">
-          <span class="text-neutral">Le SVG généré apparaîtra ici</span>
-        </div>
+    <div class="flex gap-4">
+     
+      <div
+        class="flex-1 border rounded-lg p-4 h-[400px] overflow-y-auto flex flex-col gap-2 bg-base-100"
+        id="chat-history"
+      >
+        <span class="text-neutral" data-i18n="generator.contentPlaceholder"></span>
       </div>
 
-      <form id="prompt-form" class="flex gap-2 mt-4">
-        <input id="user-prompt" type="text" placeholder="Décrivez le SVG..." class="input flex-grow" />
-        <button type="submit" class="btn btn-primary">Envoyer</button>
-      </form>
-
-      <div class="mt-4">
-        <button id="save-button" class="btn btn-accent w-full">Sauvegarder le SVG</button>
+     
+      <div
+        class="flex-1 border rounded-lg p-4 min-h-[400px] flex items-center justify-center bg-base-200"
+        id="svg-preview"
+      >
+        <span class="text-neutral" data-i18n="generator.codePlaceholder"></span>
       </div>
-    </main>
+    </div>
 
-    <script>
-      //@ts-nocheck
-      let promptList = [];
-      let svgId = null; 
+    
+    <form id="prompt-form" class="flex gap-2 mt-4">
+      <label for="user-prompt" class="sr-only" data-i18n="generator.promptLabel"></label>
+      <input id="user-prompt" type="text" placeholder="" class="input flex-grow"/>
+      <button type="submit" class="btn btn-primary" data-i18n="generator.generateButton"></button>
+    </form>
 
-      const chatHistory = document.getElementById("chat-history");
-      const svgPreview = document.getElementById("svg-preview");
-      const promptForm = document.getElementById("prompt-form");
-      const userPromptInput = document.getElementById("user-prompt");
-      const saveButton = document.getElementById("save-button");
+    <div class="mt-4">
+      <button id="save-button" class="btn btn-accent w-full" data-i18n="generator.editButton"></button>
+    </div>
+  </main>
 
-      async function generateSVG(messages) {
-        const res = await fetch("/api/generate-svg", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages }),
-        });
-        return await res.json();
-      }
+  <script type="module">
+    import { ui } from '/src/i18n/ui.js';
 
-      async function saveSVG(params) {
-        const res = await fetch("/api/saveSVG", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(params),
-        });
-        return await res.json();
-      }
+    // Détection de la langue
+    const savedLocale = localStorage.getItem('locale') || navigator.language.split('-')[0] || 'en';
+    let locale = savedLocale === 'fr' ? 'fr' : 'en';
 
-      async function updateSVG(params) {
-        const res = await fetch("/api/updateSVG", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(params),
-        });
-        return await res.json();
-      }
-
-      promptForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const prompt = userPromptInput.value.trim();
-        if (!prompt) return;
-
-        promptList.push({ role: "user", content: prompt });
-
-        const userMsg = document.createElement("div");
-        userMsg.className = "chat chat-start";
-        userMsg.innerHTML = `
-          <div class="chat-bubble bg-primary"><pre></pre></div>
-          <div class="chat-footer opacity-60 text-xs mt-1">user</div>
-        `;
-        userMsg.querySelector("pre").textContent = prompt;
-        chatHistory.appendChild(userMsg);
-
-        userPromptInput.value = "";
-        svgPreview.innerHTML = '<span class="loading loading-ring loading-xl"></span>';
-
-        const aiResponse = await generateSVG(promptList);
-        const svgMatch = aiResponse.svg.match(/<svg[\s\S]*?<\/svg>/i);
-        const svgCode = svgMatch ? svgMatch[0] : "";
-
-        promptList.push({ role: "assistant", content: svgCode });
-
-        const assistantMsg = document.createElement("div");
-        assistantMsg.className = "chat chat-end";
-        assistantMsg.innerHTML = `
-          <div class="chat-bubble bg-secondary"><pre></pre></div>
-          <div class="chat-footer opacity-60 text-xs mt-1">assistant</div>
-        `;
-        assistantMsg.querySelector("pre").textContent = svgCode;
-        chatHistory.appendChild(assistantMsg);
-
-        svgPreview.innerHTML = svgCode;
-        chatHistory.scrollTop = chatHistory.scrollHeight;
-      });
-
-      saveButton.addEventListener("click", async () => {
-        const svgOutput = svgPreview.innerHTML || "<svg></svg>";
-
-        const params = {
-          code_svg: svgOutput,
-          chat_history: promptList || [],
-        };
-
-        if (svgId) {
-         
-          params.id = svgId;
-          const result = await updateSVG(params);
-          if (result.success) {
-            alert("SVG mis à jour avec succès !");
-          } else {
-            alert("Erreur lors de la mise à jour : " + result.error);
-          }
-        } else {
-          
-          const name = prompt("Donnez un nom à votre création :");
-          if (!name) return alert("Le nom est requis.");
-          params.name = name;
-
-          const result = await saveSVG(params);
-          if (result.success && result.data?.id) {
-            svgId = result.data.id;
-            alert("SVG sauvegardé avec succès !");
-          } else {
-            alert("Erreur lors de la sauvegarde : " + result.error);
-          }
+    // Fonction pour traduire tous les éléments avec data-i18n
+    function applyTranslations() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.dataset.i18n;
+        const parts = key.split('.');
+        let value = ui[locale];
+        parts.forEach(p => value = value[p]);
+        if(value) {
+          el.textContent = value;
+          if(el.tagName === 'INPUT') el.placeholder = value; // placeholder
         }
       });
-    </script>
-  </body>
-</html>
+    }
+
+    applyTranslations();
+
+    // Sélecteur de langue global
+    const select = document.getElementById('language-select');
+    if(select) {
+      select.value = locale;
+      select.addEventListener('change', (e) => {
+        locale = e.target.value;
+        localStorage.setItem('locale', locale);
+        applyTranslations();
+      });
+    }
+
+    // =========================
+    // Logic SVG (inchangé)
+    // =========================
+    let promptList = [];
+    let svgId = null;
+    const chatHistory = document.getElementById("chat-history");
+    const svgPreview = document.getElementById("svg-preview");
+    const promptForm = document.getElementById("prompt-form");
+    const userPromptInput = document.getElementById("user-prompt");
+    const saveButton = document.getElementById("save-button");
+
+    async function generateSVG(messages) {
+      const res = await fetch("/api/generate-svg", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+      });
+      return await res.json();
+    }
+
+    async function saveSVG(params) {
+      const res = await fetch("/api/saveSVG", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      });
+      return await res.json();
+    }
+
+    async function updateSVG(params) {
+      const res = await fetch("/api/updateSVG", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      });
+      return await res.json();
+    }
+
+    promptForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const prompt = userPromptInput.value.trim();
+      if (!prompt) return;
+
+      promptList.push({ role: "user", content: prompt });
+
+      const userMsg = document.createElement("div");
+      userMsg.className = "chat chat-start";
+      userMsg.innerHTML = `
+        <div class="chat-bubble bg-primary"><pre></pre></div>
+        <div class="chat-footer opacity-60 text-xs mt-1">user</div>
+      `;
+      userMsg.querySelector("pre").textContent = prompt;
+      chatHistory.appendChild(userMsg);
+
+      userPromptInput.value = "";
+      svgPreview.innerHTML = '<span class="loading loading-ring loading-xl"></span>';
+
+      const aiResponse = await generateSVG(promptList);
+      const svgMatch = aiResponse.svg.match(/<svg[\s\S]*?<\/svg>/i);
+      const svgCode = svgMatch ? svgMatch[0] : "";
+
+      promptList.push({ role: "assistant", content: svgCode });
+
+      const assistantMsg = document.createElement("div");
+      assistantMsg.className = "chat chat-end";
+      assistantMsg.innerHTML = `
+        <div class="chat-bubble bg-secondary"><pre></pre></div>
+        <div class="chat-footer opacity-60 text-xs mt-1">assistant</div>
+      `;
+      assistantMsg.querySelector("pre").textContent = svgCode;
+      chatHistory.appendChild(assistantMsg);
+
+      svgPreview.innerHTML = svgCode;
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    });
+
+    saveButton.addEventListener("click", async () => {
+      const svgOutput = svgPreview.innerHTML || "<svg></svg>";
+      const params = { code_svg: svgOutput, chat_history: promptList || [] };
+
+      if (svgId) {
+        params.id = svgId;
+        const result = await updateSVG(params);
+        alert(result.success ? "SVG mis à jour avec succès !" : "Erreur : " + result.error);
+      } else {
+        const name = prompt("Donnez un nom à votre création :");
+        if (!name) return alert("Le nom est requis.");
+        params.name = name;
+        const result = await saveSVG(params);
+        if (result.success && result.data?.id) svgId = result.data.id;
+        alert(result.success ? "SVG sauvegardé avec succès !" : "Erreur : " + result.error);
+      }
+    });
+  </script>
+</Layout>

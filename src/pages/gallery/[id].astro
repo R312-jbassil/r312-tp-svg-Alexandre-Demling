@@ -2,45 +2,79 @@
 import Layout from "../../layouts/Layout.astro";
 import pb from "../../utils/pb";
 import { Collections, type SvgRecord } from "../../utils/pocketbase-types";
+import { ui } from "../../i18n/ui.js";
 
+const locale = Astro.locals?.lang ?? "fr";
 const id = Astro.params.id;
 const svg: SvgRecord = await pb.collection(Collections.Svg).getOne(id);
+
 let promptList = Array.isArray(svg.chat_history) ? [...svg.chat_history] : [];
 ---
 
-<Layout>
-  <h1>Éditer le SVG: {svg.name}</h1>
+<Layout title={`${ui[locale].gallery.editTitle}: ${svg.name}`}>
+  <main class="p-8 max-w-6xl mx-auto space-y-6">
+    <h1 class="text-3xl font-bold text-primary text-center">
+      {ui[locale].gallery.editTitle}: {svg.name}
+    </h1>
 
-  <div class="flex flex-col gap-4">
     <div class="flex gap-4">
-      <div class="flex-1 border rounded-lg p-4 min-h-[300px] flex items-center justify-center bg-base-200" id="svg-preview">
+     
+      <div
+        class="flex-1 border rounded-lg p-4 min-h-[300px] flex items-center justify-center bg-base-200"
+        id="svg-preview"
+      >
         {@html svg.code_svg}
       </div>
 
-      <div class="flex-1 border rounded-lg p-4 h-[300px] overflow-y-auto flex flex-col gap-2 bg-base-100" id="chat-history">
+     
+      <div
+        class="flex-1 border rounded-lg p-4 h-[300px] overflow-y-auto flex flex-col gap-2 bg-base-100"
+        id="chat-history"
+      >
         {promptList.length > 0 ? (
-          promptList.map(msg => (
-            <div class={`chat ${msg.role === 'user' ? 'chat-start' : 'chat-end'}`}>
-              <div class={`chat-bubble ${msg.role === 'user' ? 'bg-primary' : 'bg-secondary'}`}>
+          promptList.map((msg) => (
+            <div
+              class={`chat ${msg.role === "user" ? "chat-start" : "chat-end"}`}
+            >
+              <div
+                class={`chat-bubble ${
+                  msg.role === "user" ? "bg-primary" : "bg-secondary"
+                }`}
+              >
                 <pre>{msg.content}</pre>
               </div>
               <div class="chat-footer opacity-60 text-xs mt-1">{msg.role}</div>
             </div>
           ))
         ) : (
-          <span class="text-error">Aucun historique de chat.</span>
+          <span class="text-error">{ui[locale].gallery.noHistory}</span>
         )}
       </div>
     </div>
 
-    <form id="edit-form" class="flex flex-col gap-2 w-full">
-      <input id="edit-prompt" type="text" placeholder="Modifier le SVG..." class="input w-full" />
-      <button type="submit" class="btn btn-primary mt-2">Envoyer</button>
+    
+    <form id="edit-form" class="flex gap-2 mt-4">
+      <label for="edit-prompt" class="sr-only">
+        {ui[locale].generator.promptLabel}
+      </label>
+      <input
+        id="edit-prompt"
+        type="text"
+        placeholder={ui[locale].generator.promptLabel}
+        class="input flex-grow"
+      />
+      <button type="submit" class="btn btn-primary">
+        {ui[locale].generator.generateButton}
+      </button>
     </form>
-  </div>
+  </main>
 
   <script>
     //@ts-nocheck
+    let promptList = JSON.parse(
+      `{JSON.stringify(promptList).replace(/</g, "\\u003c")}`
+    );
+
     const form = document.getElementById("edit-form");
     const promptInput = document.getElementById("edit-prompt");
     const svgPreview = document.getElementById("svg-preview");
@@ -82,7 +116,8 @@ let promptList = Array.isArray(svg.chat_history) ? [...svg.chat_history] : [];
       chatHistory.appendChild(userMsg);
 
       promptInput.value = "";
-      svgPreview.innerHTML = '<span class="loading loading-ring loading-xl"></span>';
+      svgPreview.innerHTML =
+        '<span class="loading loading-ring loading-xl"></span>';
 
       const aiResponse = await generateSVG(promptList);
       const svgMatch = aiResponse.svg.match(/<svg[\s\S]*?<\/svg>/i);
@@ -102,7 +137,7 @@ let promptList = Array.isArray(svg.chat_history) ? [...svg.chat_history] : [];
       svgPreview.innerHTML = svgCode;
 
       await updateSVG({
-        id: svg.id,
+        id: "{svg.id}",
         code_svg: svgCode,
         chat_history: promptList,
       });
