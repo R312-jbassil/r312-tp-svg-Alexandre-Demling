@@ -1,28 +1,51 @@
-export const onRequest = async (context) => {
-  const { request, url, cookies, locals, next } = context;
+// src/middleware/index.js
+import pb from '../utils/pb';
 
-  // Ignorer les endpoints API
-  if (url.pathname.startsWith('/api/')) return next();
+export const onRequest = async (context, next) => {
+  const { request, url, cookies, locals } = context;
 
-  //  Gestion du formulaire de langue
+  // --- 1. Authentification ---
+  const cookie = cookies.get('pb_auth')?.value;
+  if (cookie) {
+    pb.authStore.loadFromCookie(cookie);
+    if (pb.authStore.isValid) {
+      context.locals.user = pb.authStore.record;
+    }
+  }
+
+  // --- 2. Protection des routes API ---
+  if (url.pathname.startsWith('/api/')) {
+    if (
+      !context.locals.user &&
+      url.pathname !== '/api/login' &&
+      url.pathname !== '/api/signup'
+    ) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
+    return next();
+  }
+
+  // --- 3. Redirection vers /login si page protégée ---
+  if (!context.locals.user) {
+    if (url.pathname !== '/login' && url.pathname !== '/signup' && url.pathname !== '/') {
+      return Response.redirect(new URL('/login', url), 303);
+    }
+  }
+
+  // --- 4. i18n (ta logique existante) ---
   if (request.method === 'POST') {
     const form = await request.formData().catch(() => null);
     const lang = form?.get('language');
-
     if (lang === 'en' || lang === 'fr') {
       cookies.set('locale', lang, { path: '/', maxAge: 60 * 60 * 24 * 365 });
       return Response.redirect(new URL(url.pathname + url.search, url), 303);
     }
   }
 
-  //  Lecture du cookie
   const cookieLocale = cookies.get('locale')?.value;
-
-  //  Détection de la langue du navigateur
   const acceptLang = request.headers.get('accept-language') || '';
   const browserLocale = acceptLang.split(',')[0]?.split('-')[0];
 
-  //  Détermination de la langue finale
   const finalLocale =
     cookieLocale === 'en' || cookieLocale === 'fr'
       ? cookieLocale
@@ -30,7 +53,6 @@ export const onRequest = async (context) => {
       ? 'fr'
       : 'en';
 
-  //  Stocker dans locals pour Astro
   locals.lang = finalLocale;
 
   return next();

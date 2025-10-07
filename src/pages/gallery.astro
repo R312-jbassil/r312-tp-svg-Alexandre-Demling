@@ -1,0 +1,52 @@
+---
+import Layout from "../layouts/Layout.astro";
+import pb from "../utils/pb";
+
+// Vérifie si l'utilisateur est connecté
+const user = Astro.locals.user;
+if (!user) {
+  throw Astro.redirect("/login");
+}
+
+// Récupère tous les SVG appartenant à cet utilisateur
+let svgList = [];
+try {
+  svgList = await pb.collection("svg").getFullList({
+    sort: "-created",
+    filter: `user = "${user.id}"`,
+  });
+} catch (err) {
+  console.error("Erreur lors de la récupération des SVG :", err);
+}
+---
+
+<Layout>
+  <section class="container mx-auto p-6">
+    <h1 class="text-2xl font-bold mb-6">🖼️ Ma galerie de SVG</h1>
+
+    {svgList.length === 0 ? (
+      <p class="text-gray-500 text-center">Aucun SVG enregistré pour l’instant.</p>
+    ) : (
+      <div class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {svgList.map(svg => (
+          <div class="card bg-base-100 shadow-xl overflow-hidden">
+            <div class="p-4 bg-gray-50 flex justify-center items-center min-h-[150px]">
+              <div innerHTML={svg.code_svg}></div>
+            </div>
+            <div class="card-body p-4">
+              <h2 class="card-title text-base">{svg.name}</h2>
+              <p class="text-xs text-gray-400">
+                {new Date(svg.created).toLocaleString()}
+              </p>
+              <div class="card-actions justify-end mt-2">
+                <a href={`/gallery/${svg.id}`} class="btn btn-sm btn-primary">
+                  Voir
+                </a>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </section>
+</Layout>
